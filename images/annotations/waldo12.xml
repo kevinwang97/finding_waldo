@@ -1,0 +1,26 @@
+<annotation>
+	<folder>images</folder>
+	<filename>waldo12.jpg</filename>
+	<path>/Users/kevinwang/Projects/where-is-waldo/images/waldo12.jpg</path>
+	<source>
+		<database>Unknown</database>
+	</source>
+	<size>
+		<width>1276</width>
+		<height>1754</height>
+		<depth>3</depth>
+	</size>
+	<segmented>0</segmented>
+	<object>
+		<name>waldo</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>823</xmin>
+			<ymin>519</ymin>
+			<xmax>898</xmax>
+			<ymax>700</ymax>
+		</bndbox>
+	</object>
+</annotation>
