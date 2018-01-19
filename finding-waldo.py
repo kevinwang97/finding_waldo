@@ -27,8 +27,9 @@ def generate_train_data(num_with_waldo, num_without_waldo_per_waldo):
     waldo_locations = json.load(f)
   keys = random.sample(waldo_locations, num_with_waldo)
   for name in keys:
+    print "sampling from {}".format(name)
     locs = waldo_locations[name]
-    rand_loc = random.choice(locs)
+    rand_loc = random.choice(locs)[:]
     #image with waldo
     im = Image.open(TRAINING_PATH + name + '.jpg')
     height, width = im.size
@@ -133,15 +134,22 @@ def main():
       activation=None
       )
 
-  prediction = tf.round(tf.sigmoid(logits))
+  prediction = tf.greater(tf.sigmoid(logits), 0.5)
 
-  correct_prediction = tf.equal(prediction, y)
+  correct_prediction = tf.equal(prediction, tf.cast(y, bool))
 
   ####
-  #pixel accuracy
-  pixel_accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+  #pixel accuracy and sensitivity
+  pixel_accuracy = tf.reduce_sum(tf.cast(correct_prediction, tf.float32), axis=[1,2,3]) / (224*224)
+  zero = tf.constant(0, tf.float32)
+  condition = tf.not_equal(tf.reduce_sum(y, axis=[1,2,3]), zero)
+  indices = tf.where(condition)
+  pixel_true_positives = tf.gather_nd(tf.reduce_sum(tf.cast(tf.logical_and(prediction, tf.cast(y, bool)), tf.float32), axis=[1,2,3]), indices)
+  pixel_num_true = tf.gather_nd(tf.reduce_sum(y, axis=[1,2,3]), indices)
+  pixel_sensitivity = tf.div(pixel_true_positives, pixel_num_true)
 
-  loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=y, logits=logits))
+
+  loss = tf.reduce_mean(tf.nn.weighted_cross_entropy_with_logits(targets=y, logits=logits, pos_weight=30))
   optimizer = tf.train.AdamOptimizer(1e-4)
   train = optimizer.minimize(loss)
 
@@ -150,13 +158,13 @@ def main():
     writer = tf.summary.FileWriter("/tmp/log/...", sess.graph)
     sess.run(tf.global_variables_initializer())
 
-    for i in range(1, 101):
-      images, mask = generate_train_data(4, 4)
+    for i in range(1, 51):
+      images, mask = generate_train_data(4, 0) # 2 pics with waldo and 1 no waldos per waldo = 4 images per batch
       sess.run(train, feed_dict={X: images, Y: mask})
-      if i % 5 == 0 or i == 1:
-        metrics = sess.run([loss, pixel_accuracy], feed_dict={X: images, Y: mask})
-        print("Step {}, Loss {}, Accuracy {}".format(i, metrics[0], metrics[1]))
-    saver.save(sess, 'find_waldo_model', global_step=100)
+      metrics = sess.run([loss, pixel_accuracy, pixel_sensitivity], feed_dict={X: images, Y: mask})
+      print("Step {}, Loss {}, Accuracy {}, Sensitivity {}".format(i, metrics[0], metrics[1], metrics[2]))
+      if i % 10 == 0:
+        saver.save(sess, './find_waldo_model/model', global_step=i)
     writer.close()
 
 if __name__ == '__main__':
